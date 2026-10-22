@@ -1,0 +1,3 @@
+# input output
+input/song01.wav output/song01.wav
+input/song02.wav output/song02.wav
