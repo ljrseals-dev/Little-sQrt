@@ -32,6 +32,11 @@ Production-oriented Python loudness measurement, normalization, and true-peak ve
 The regression tests in tests/ assert the BS.1770‑4 Table 1 coefficients at 48 kHz and an end‑to‑end −20 LUFS reference; these run on every pytest invocation.
 ---
 
+## BONUS BOOK
+<p align="center">
+  <img src="Book/1792645689086.jpg" alt="Crystal-ASIO-Codec Banner" width="100%">
+</p>
+
 ## Installation
 
 Clone the repository and install the required dependencies:
