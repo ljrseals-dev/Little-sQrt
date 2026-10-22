@@ -1,5 +1,43 @@
 # Little sQrt v2.0.1
 
+Production-oriented Python loudness measurement, normalization, and true-peak verification utility.
+
+[![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/version-2.0.1-orange.svg)](CHANGELOG.md)
+
+---
+
+## What it does
+
+- **BS.1770-4 K-weighting**: Precise filter stages adhering to ITU-R BS.1770 specifications.
+- **Loudness Gating**: Energy-domain absolute ($-70\text{ LUFS}$) and relative ($-10\text{ LU}$) gating.
+- **Integrated LUFS**: Accurate broadcast-grade integrated loudness calculation.
+- **Momentary & Short-Term**: $400\text{ ms}$ momentary and $3\text{ s}$ short-term loudness measurement.
+- **EBU LRA**: EBU Tech 3342 loudness range distribution measurement.
+- **True-Peak Detection**: $4\times$ interpolated true-peak measurement.
+- **Multichannel Support**: Explicit channel-weight support for up to 8 channels.
+- **Normalization & Limiting**: Loudness normalization to target LUFS with configurable true-peak ceiling.
+- **High-Rate PCM**: Optional $8\times$ high-rate PCM output rendering.
+- **Post-Render Verification**: Automated forensic verification report.
+- **Batch Processing**: Multi-process batch execution with per-job error isolation.
+- **Deterministic JSON Reports**: Detailed forensic reporting separating measurement, render actions, and verification.
+- **Numba Acceleration**: Optional high-performance JIT execution.
+
+---
+
+## Installation
+
+Clone the repository and install the required dependencies:
+
+```bash
+git clone [https://github.com/ljrseals-dev/Little-sQrt.git](https://github.com/ljrseals-dev/Little-sQrt.git)
+cd Little-sQrt
+python -m pip install -r requirements.txt
+```
+---
+# Little sQrt v2.0.1
+
 Production-oriented Python loudness normalization and verification utility.
 
 ## What it does
