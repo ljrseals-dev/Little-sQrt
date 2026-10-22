@@ -41,27 +41,6 @@ cd Little-sQrt
 python -m pip install -r requirements.txt
 ```
 ---
-# Little sQrt v2.0.1
-
-Production-oriented Python loudness normalization and verification utility.
-
-## What it does
-
-- BS.1770-style K-weighted loudness measurement
-- 400 ms / 100 ms momentary block structure
-- energy-domain absolute and relative loudness gating
-- integrated LUFS
-- short-term loudness
-- EBU-style LRA distribution calculation
-- 4x interpolated true-peak measurement
-- explicit common multichannel weighting
-- loudness normalization
-- configurable true-peak ceiling
-- optional 8x high-rate PCM rendering
-- post-render verification
-- JSON forensic report
-- batch processing with per-job error isolation
-- optional Numba acceleration
 
 ## Important terminology
 
