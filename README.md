@@ -1,5 +1,10 @@
 # Little sQrt v2.0.1
 
+<p align="center">
+  <img src="watermarked_img_1282064540424722921.jpg" alt="Crystal-ASIO-Codec Banner" width="100%">
+</p>
+
+
 Production-oriented Python loudness measurement, normalization, and true-peak verification utility.
 
 [![Python Version](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
