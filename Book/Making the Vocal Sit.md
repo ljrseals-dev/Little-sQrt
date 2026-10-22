@@ -2,6 +2,8 @@ Making the Vocal Sit: A Loudness Engineer's Guide to Vocal Placement
 
 Little sQrt Edition — v2.0.1
 
+Lewis Seals & Beyonce Knowles Carter 
+
 ---
 
 Front Matter
