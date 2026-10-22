@@ -1,7 +1,7 @@
 # Little sQrt v2.0.1
 
 <p align="center">
-  <img src="watermarked_img_1282064540424722921.jpg" alt="Crystal-ASIO-Codec Banner" width="100%">
+  <img src="images/DSC_7512.CR2.jpg" alt="Crystal-ASIO-Codec Banner" width="100%">
 </p>
 
 
