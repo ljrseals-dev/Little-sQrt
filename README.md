@@ -29,6 +29,7 @@ Production-oriented Python loudness measurement, normalization, and true-peak ve
 - **Deterministic JSON Reports**: Detailed forensic reporting separating measurement, render actions, and verification.
 - **Numba Acceleration**: Optional high-performance JIT execution.
 
+The regression tests in tests/ assert the BS.1770‑4 Table 1 coefficients at 48 kHz and an end‑to‑end −20 LUFS reference; these run on every pytest invocation.
 ---
 
 ## Installation
