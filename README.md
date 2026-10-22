@@ -34,7 +34,7 @@ The regression tests in tests/ assert the BS.1770‑4 Table 1 coefficients at 48
 
 ## BONUS BOOK
 <p align="center">
-  <img src="Book/1792645689086.jpg" alt="Crystal-ASIO-Codec Banner" width="100%">
+  <img src="Book/images/1792645689086.jpg" alt="Crystal-ASIO-Codec Banner" width="100%">
 </p>
 
 ## Installation
