@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Little sQrt — loudness normalization</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --bg: #101113;
+    --bg-raised: #17191c;
+    --panel: #1c1f22;
+    --line: #2b2f33;
+    --line-soft: #23262a;
+    --text: #e9e7de;
+    --text-dim: #90948f;
+    --text-faint: #5c605c;
+    --phosphor: #8fd65c;
+    --phosphor-dim: #5c8a3f;
+    --amber: #e0a23f;
+    --red: #d6584a;
+    --radius: 3px;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+    --sans: "Inter", -apple-system, sans-serif;
+    --display: "Space Grotesk", var(--sans);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.015), transparent 120px),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.5;
+    min-height:100vh;
+  }
+  ::selection{ background:var(--phosphor-dim); color:#0d0f0d; }
+
+  a{ color:var(--phosphor); }
+
+  .wrap{
+    max-width:920px;
+    margin:0 auto;
+    padding:56px 24px 120px;
+  }
+
+  /* ---------- header ---------- */
+  header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:24px;
+    border-bottom:1px solid var(--line);
+    padding-bottom:22px;
+    margin-bottom:36px;
+  }
+  .wordmark{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:26px;
+    letter-spacing:-0.01em;
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+  }
+  .wordmark .radical{
+    font-size: 30px;
+    color: var(--phosphor);
+    font-weight: 400;
+  }
+  .wordmark .ver{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--text-faint);
+    font-weight:400;
+  }
+  .tagline{
+    font-size:13px;
+    color:var(--text-dim);
+    max-width:280px;
+    text-align:right;
+    line-height:1.45;
+  }
+
+  /* ---------- section labels ---------- */
+  .section-head{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin: 44px 0 14px;
+  }
+  .section-head h2{
+    font-family:var(--display);
+    font-size:15px;
+    font-weight:600;
+    margin:0;
+    color:var(--text);
+  }
+  .section-head .hint{
+    font-size:12px;
+    color:var(--text-faint);
+    font-family:var(--mono);
+  }
+
+  /* ---------- drop zone ---------- */
+  .dropzone{
+    border:1px dashed var(--line);
+    border-radius:var(--radius);
+    background:var(--bg-raised);
+    padding:44px 24px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s ease, background .15s ease;
+    position:relative;
+  }
+  .dropzone:hover, .dropzone.drag{
+    border-color:var(--phosphor-dim);
+    background:#191c17;
+  }
+  .dropzone input{ display:none; }
+  .dropzone .glyph{
+    font-family:var(--mono);
+    font-size:28px;
+    color:var(--phosphor);
+    display:block;
+    margin-bottom:14px;
+    letter-spacing:2px;
+  }
+  .dropzone .primary{
+    font-size:15px;
+    color:var(--text);
+    margin-bottom:4px;
+  }
+  .dropzone .secondary{
+    font-size:12.5px;
+    color:var(--text-faint);
+    font-family:var(--mono);
+  }
+
+  .filelist{
+    margin-top:12px;
+    display:flex;
+    flex-direction:column;
+    gap:1px;
+    background:var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .filelist .row{
+    background:var(--panel);
+    padding:10px 14px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    font-size:13px;
+  }
+  .filelist .name{ color:var(--text); }
+  .filelist .size{ color:var(--text-faint); font-family:var(--mono); font-size:12px; }
+  .filelist .rm{
+    background:none; border:none; color:var(--text-faint);
+    cursor:pointer; font-size:16px; padding:0 4px; line-height:1;
+  }
+  .filelist .rm:hover{ color:var(--red); }
+
+  /* ---------- controls ---------- */
+  .controls{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:1px;
+    background:var(--line);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .field{
+    background:var(--panel);
+    padding:14px 16px;
+  }
+  .field label{
+    display:block;
+    font-size:11px;
+    color:var(--text-faint);
+    font-family:var(--mono);
+    margin-bottom:8px;
+  }
+  .field select, .field input[type=number]{
+    width:100%;
+    background:transparent;
+    border:none;
+    border-bottom:1px solid var(--line-soft);
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:15px;
+    padding:4px 0 6px;
+    outline:none;
+  }
+  .field select:focus, .field input:focus{
+    border-bottom-color:var(--phosphor);
+  }
+  .field.toggle{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .switch{
+    position:relative;
+    width:38px; height:20px;
+    background:var(--line-soft);
+    border-radius:10px;
+    cursor:pointer;
+    flex-shrink:0;
+    transition:background .15s;
+  }
+  .switch.on{ background:var(--phosphor-dim); }
+  .switch::after{
+    content:"";
+    position:absolute; top:2px; left:2px;
+    width:16px; height:16px;
+    border-radius:50%;
+    background:var(--text);
+    transition:transform .15s;
+  }
+  .switch.on::after{ transform:translateX(18px); background:#0d0f0d; }
+
+  @media (max-width: 720px){
+    .controls{ grid-template-columns:repeat(2,1fr); }
+  }
+
+  /* ---------- run button ---------- */
+  .runbar{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-top:20px;
+  }
+  button.run{
+    background:var(--phosphor);
+    color:#0d0f0d;
+    border:none;
+    font-family:var(--display);
+    font-weight:600;
+    font-size:14px;
+    padding:12px 26px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    letter-spacing:0.01em;
+  }
+  button.run:hover{ background:#a2e872; }
+  button.run:disabled{ background:var(--line-soft); color:var(--text-faint); cursor:default; }
+  .runstatus{
+    font-family:var(--mono);
+    font-size:12.5px;
+    color:var(--text-dim);
+  }
+
+  /* ---------- results ---------- */
+  .report-card{
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    background:var(--bg-raised);
+    margin-bottom:16px;
+    overflow:hidden;
+  }
+  .report-card .head{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:14px 18px;
+    border-bottom:1px solid var(--line);
+    gap:12px;
+  }
+  .report-card .head .fname{
+    font-family:var(--mono);
+    font-size:13.5px;
+    color:var(--text);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .report-card .head .dl{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--phosphor);
+    text-decoration:none;
+    border:1px solid var(--phosphor-dim);
+    padding:5px 10px;
+    border-radius:var(--radius);
+    white-space:nowrap;
+  }
+  .report-card .head .dl:hover{ background:rgba(143,214,92,0.08); }
+  .report-card .head .err{
+    color:var(--red); font-family:var(--mono); font-size:12.5px;
+  }
+
+  .meter{
+    padding:16px 18px 4px;
+  }
+  .meter-row{
+    display:flex; align-items:center; gap:10px; margin-bottom:10px;
+  }
+  .meter-row .mlabel{
+    width:64px; font-family:var(--mono); font-size:11px; color:var(--text-faint); flex-shrink:0;
+  }
+  .meter-track{
+    position:relative;
+    flex:1;
+    height:6px;
+    background:var(--line-soft);
+    border-radius:3px;
+  }
+  .meter-fill{
+    position:absolute; left:0; top:0; bottom:0;
+    background:var(--phosphor-dim);
+    border-radius:3px;
+  }
+  .meter-mark{
+    position:absolute; top:-3px; width:2px; height:12px;
+    background:var(--amber);
+  }
+  .meter-val{
+    width:70px; text-align:right; font-family:var(--mono); font-size:12.5px; color:var(--text);
+    flex-shrink:0;
+  }
+
+  .numbers{
+    display:grid;
+    grid-template-columns:repeat(3, 1fr);
+    gap:1px;
+    background:var(--line);
+    margin-top:12px;
+    border-top:1px solid var(--line);
+  }
+  .numcol{
+    background:var(--panel);
+    padding:14px 18px;
+  }
+  .numcol h4{
+    margin:0 0 10px;
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--text-faint);
+    font-weight:500;
+  }
+  .numcol .kv{
+    display:flex; justify-content:space-between;
+    font-size:12.5px;
+    padding:3px 0;
+  }
+  .numcol .kv .k{ color:var(--text-dim); }
+  .numcol .kv .v{ color:var(--text); font-family:var(--mono); }
+  .numcol .kv .v.warn{ color:var(--amber); }
+  .numcol .kv .v.bad{ color:var(--red); }
+  @media (max-width: 720px){
+    .numbers{ grid-template-columns:1fr; }
+  }
+
+  .batch-actions{
+    display:flex; justify-content:flex-end; margin-top:8px;
+  }
+  .batch-actions a{
+    font-family:var(--mono); font-size:12px; color:var(--text-dim);
+    border:1px solid var(--line); padding:6px 12px; border-radius:var(--radius);
+    text-decoration:none;
+  }
+  .batch-actions a:hover{ color:var(--phosphor); border-color:var(--phosphor-dim); }
+
+  footer{
+    margin-top:60px;
+    padding-top:20px;
+    border-top:1px solid var(--line);
+    color:var(--text-faint);
+    font-size:12px;
+    font-family:var(--mono);
+    line-height:1.7;
+  }
+  footer p{ margin:0 0 6px; }
+
+  .empty-hint{
+    color:var(--text-faint);
+    font-size:13px;
+    font-family:var(--mono);
+    padding:20px 0;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="wordmark">little<span class="radical">√</span>rt <span class="ver">v2.0.1 · web</span></div>
+    <div class="tagline">Loudness normalization &amp; true-peak verification. Runs in your browser — nothing is uploaded.</div>
+  </header>
+
+  <div class="section-head"><h2>Source</h2><span class="hint">wav preferred · other formats decoded by the browser</span></div>
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="fileInput" multiple accept="audio/*">
+    <span class="glyph">⇩</span>
+    <div class="primary">Drop audio files here, or click to browse</div>
+    <div class="secondary">batch supported — each file is processed and reported independently</div>
+  </div>
+  <div class="filelist" id="filelist" style="display:none;"></div>
+
+  <div class="section-head"><h2>Render settings</h2><span class="hint">applied to every file in the batch</span></div>
+  <div class="controls">
+    <div class="field">
+      <label>target loudness</label>
+      <select id="targetPreset">
+        <option value="-23">-23 LUFS · broadcast (EBU R128)</option>
+        <option value="-16">-16 LUFS · podcast</option>
+        <option value="-14" selected>-14 LUFS · streaming (Spotify/YouTube)</option>
+        <option value="-9">-9 LUFS · loud / club</option>
+        <option value="custom">custom…</option>
+      </select>
+    </div>
+    <div class="field" id="customTargetField" style="display:none;">
+      <label>custom target (LUFS)</label>
+      <input type="number" id="targetCustom" value="-14" step="0.5">
+    </div>
+    <div class="field" id="tpField">
+      <label>true-peak ceiling (dBTP)</label>
+      <input type="number" id="tpCeiling" value="-1.0" step="0.1">
+    </div>
+    <div class="field" id="hpField">
+      <label>high-pass (Hz, 0 = off)</label>
+      <input type="number" id="hpHz" value="20" step="1" min="0">
+    </div>
+    <div class="field">
+      <label>output bit depth</label>
+      <select id="bitDepth">
+        <option value="16">16-bit PCM</option>
+        <option value="24" selected>24-bit PCM</option>
+        <option value="32">32-bit float</option>
+      </select>
+    </div>
+    <div class="field toggle">
+      <label style="margin:0;">8x high-rate output</label>
+      <div class="switch" id="upsampleToggle"></div>
+    </div>
+  </div>
+
+  <div class="runbar">
+    <button class="run" id="runBtn" disabled>Process batch</button>
+    <span class="runstatus" id="runStatus"></span>
+  </div>
+
+  <div class="section-head"><h2>Reports</h2><span class="hint">measurement → render → verification</span></div>
+  <div id="results">
+    <div class="empty-hint">Results appear here after processing.</div>
+  </div>
+  <div class="batch-actions" id="batchActions" style="display:none;">
+    <a id="downloadAll" href="#">download all as .zip</a>
+  </div>
+
+  <footer>
+    <p>K-weighted BS.1770-style measurement, energy-domain gating, EBU-style LRA, 4x-oversampled true-peak detection. Processing happens entirely client-side via the Web Audio API and typed-array DSP — files never leave this tab.</p>
+    <p>This is a production-oriented tool, not a claim of independent broadcast certification. Validate against your organization's reference vectors before delivery.</p>
+  </footer>
+
+</div>
+
+<script>
+/* =========================================================================
+   Little sQrt — client-side port of the BS.1770 / EBU R128 style pipeline.
+   Mirrors littlesqrt.py: measurement -> render -> verification.
+   ========================================================================= */
+
+const ABS_GATE_LUFS = -70.0;
+const REL_GATE_LU = -10.0;
+const BLOCK_S = 0.400;
+const HOP_S = 0.100;
+const ST_WINDOW_S = 3.000;
+const MOMENTARY_S = 0.400;
+const TP_OVERSAMPLE = 4;
+const OUTPUT_UPSAMPLE = 8;
+
+const CHANNEL_GAINS = {
+  1:[1,1,1,1,1,1,1,1].slice(0,1),
+  2:[1,1],
+  3:[1,1,1],
+  4:[1,1,1,1],
+  5:[1,1,1,1,1],
+  6:[1,1,1,1,1,0],
+  7:[1,1,1,1,1,0,1],
+  8:[1,1,1,1,1,0,1,1],
+};
+function channelGains(ch){ return CHANNEL_GAINS[ch] ? CHANNEL_GAINS[ch].slice() : new Array(ch).fill(1); }
+
+/* ---------------- biquad cascade (direct form II transposed, like sosfilt) ---------------- */
+function sosFilt(sections, x){
+  // sections: array of [b0,b1,b2,a0,a1,a2] with a0 normalized to 1 already expected outside,
+  // but we handle general a0 here too.
+  let y = x;
+  for (const s of sections){
+    const [b0,b1,b2,a0,a1,a2] = s;
+    const nb0=b0/a0, nb1=b1/a0, nb2=b2/a0, na1=a1/a0, na2=a2/a0;
+    const out = new Float64Array(y.length);
+    let z1=0, z2=0;
+    for (let i=0;i<y.length;i++){
+      const xi = y[i];
+      const yi = nb0*xi + z1;
+      z1 = nb1*xi - na1*yi + z2;
+      z2 = nb2*xi - na2*yi;
+      out[i] = yi;
+    }
+    y = out;
+  }
+  return y;
+}
+
+function kWeightSos(sr){
+  let f0 = 1681.974450955533;
+  let G = 3.999843853973347;
+  let Q = 0.7071752369554196;
+  let K = Math.tan(Math.PI*f0/sr);
+  let Vh = Math.pow(10, G/20);
+  let Vb = Math.pow(Vh, 0.4996667741545416);
+  let a0 = 1.0 + K/Q + K*K;
+  const s1 = [
+    (Vh + Vb*K/Q + K*K)/a0,
+    2.0*(K*K - Vh)/a0,
+    (Vh - Vb*K/Q + K*K)/a0,
+    1.0,
+    2.0*(K*K - 1.0)/a0,
+    (1.0 - K/Q + K*K)/a0,
+  ];
+  f0 = 38.13547087602444;
+  Q = 0.5003270373238773;
+  K = Math.tan(Math.PI*f0/sr);
+  a0 = 1.0 + K/Q + K*K;
+  const s2 = [
+    1.0, -2.0, 1.0,
+    1.0,
+    2.0*(K*K - 1.0)/a0,
+    (1.0 - K/Q + K*K)/a0,
+  ];
+  return [s1, s2];
+}
+
+function kWeightChannel(x, sr){
+  return sosFilt(kWeightSos(sr), x);
+}
+
+// RBJ-cookbook 2nd order Butterworth highpass (Q = 1/sqrt(2)), matches scipy butter(2,...,'highpass')
+function highpassSos(hz, sr){
+  const Q = 0.7071067811865476;
+  const w0 = 2*Math.PI*hz/sr;
+  const alpha = Math.sin(w0)/(2*Q);
+  const cosw0 = Math.cos(w0);
+  const b0 = (1+cosw0)/2, b1 = -(1+cosw0), b2 = (1+cosw0)/2;
+  const a0 = 1+alpha, a1 = -2*cosw0, a2 = 1-alpha;
+  return [[b0,b1,b2,a0,a1,a2]];
+}
+
+function highpassChannel(x, hz, sr){
+  return sosFilt(highpassSos(hz, sr), x);
+}
+
+/* ---------------- block loudness ---------------- */
+function weightedBlockMs(channelsY, gains, block, hop){
+  const n = channelsY[0].length;
+  if (n < block) return new Float64Array(0);
+  const nb = Math.floor((n-block)/hop) + 1;
+  const out = new Float64Array(nb);
+  const inv = 1.0/block;
+  const chCount = channelsY.length;
+  for (let b=0;b<nb;b++){
+    const s = b*hop;
+    let acc = 0;
+    for (let c=0;c<chCount;c++){
+      const g = gains[c];
+      if (g===0) continue;
+      const y = channelsY[c];
+      let sum=0;
+      for (let i=0;i<block;i++){ const v=y[s+i]; sum += v*v; }
+      acc += g*sum;
+    }
+    out[b] = acc*inv;
+  }
+  return out;
+}
+
+function lufsFromMs(ms){
+  const out = new Float64Array(ms.length);
+  for (let i=0;i<ms.length;i++) out[i] = -0.691 + 10*Math.log10(Math.max(ms[i], 1e-30));
+  return out;
+}
+function lufsFromMsScalar(v){ return -0.691 + 10*Math.log10(Math.max(v,1e-30)); }
+
+function loudnessBlocks(channelsX, sr, seconds){
+  const gains = channelGains(channelsX.length);
+  const weighted = channelsX.map(ch => kWeightChannel(ch, sr));
+  const block = Math.max(1, Math.round(seconds*sr));
+  const hop = Math.max(1, Math.round(HOP_S*sr));
+  return weightedBlockMs(weighted, gains, block, hop);
+}
+
+function integratedLkfs(channelsX, sr){
+  const ms = loudnessBlocks(channelsX, sr, BLOCK_S);
+  if (ms.length===0) return -Infinity;
+  const lufsVals = lufsFromMs(ms);
+  const absMs = [];
+  for (let i=0;i<ms.length;i++) if (lufsVals[i] > ABS_GATE_LUFS) absMs.push(ms[i]);
+  if (absMs.length===0) return -Infinity;
+  const meanAbs = absMs.reduce((a,b)=>a+b,0)/absMs.length;
+  const relLufs = lufsFromMsScalar(meanAbs) + REL_GATE_LU;
+  const gated = [];
+  for (const v of absMs) if (lufsFromMsScalar(v) > relLufs) gated.push(v);
+  if (gated.length===0) return -Infinity;
+  const meanGated = gated.reduce((a,b)=>a+b,0)/gated.length;
+  return lufsFromMsScalar(meanGated);
+}
+
+function momentaryLkfs(channelsX, sr){
+  const ms = loudnessBlocks(channelsX, sr, MOMENTARY_S);
+  return ms.length ? lufsFromMs(ms) : new Float64Array(0);
+}
+function shortTermLkfs(channelsX, sr){
+  const ms = loudnessBlocks(channelsX, sr, ST_WINDOW_S);
+  return ms.length ? lufsFromMs(ms) : new Float64Array(0);
+}
+
+function percentile(sortedArr, p){
+  if (sortedArr.length===0) return NaN;
+  const idx = (p/100)*(sortedArr.length-1);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  if (lo===hi) return sortedArr[lo];
+  const frac = idx-lo;
+  return sortedArr[lo]*(1-frac) + sortedArr[hi]*frac;
+}
+
+function loudnessRange(channelsX, sr){
+  let st = Array.from(shortTermLkfs(channelsX, sr)).filter(v => isFinite(v) && v > ABS_GATE_LUFS);
+  if (st.length < 2) return 0.0;
+  const sorted1 = st.slice().sort((a,b)=>a-b);
+  const p10 = percentile(sorted1, 10.0);
+  const p95unused = percentile(sorted1, 95.0);
+  const rel = p10 - 20.0;
+  const gated = st.filter(v => v > rel);
+  if (gated.length < 2) return 0.0;
+  const sorted2 = gated.slice().sort((a,b)=>a-b);
+  return percentile(sorted2, 95.0) - percentile(sorted2, 10.0);
+}
+
+/* ---------------- resampling (windowed-sinc polyphase upsample) for true-peak & 8x render --- */
+function designLowpassFIR(cutoffFrac, numTaps){
+  // cutoffFrac: normalized cutoff (1.0 = new Nyquist / factor), Hamming window
+  const taps = new Float64Array(numTaps);
+  const M = numTaps-1;
+  for (let n=0;n<numTaps;n++){
+    const m = n - M/2;
+    const sinc = (m===0) ? cutoffFrac : Math.sin(Math.PI*cutoffFrac*m)/(Math.PI*m);
+    const w = 0.54 - 0.46*Math.cos(2*Math.PI*n/M);
+    taps[n] = sinc*w;
+  }
+  let sum=0; for (const t of taps) sum+=t;
+  for (let i=0;i<numTaps;i++) taps[i] /= sum;
+  return taps;
+}
+
+function upsampleChannel(x, factor){
+  if (factor<=1) return x.slice();
+  const numTaps = 8*factor + 1;
+  const taps = designLowpassFIR(1.0/factor, numTaps);
+  const n = x.length;
+  const outLen = n*factor;
+  const stuffed = new Float64Array(outLen);
+  for (let i=0;i<n;i++) stuffed[i*factor] = x[i];
+  const delay = Math.floor((numTaps-1)/2);
+  const out = new Float64Array(outLen);
+  for (let i=0;i<outLen;i++){
+    let acc=0;
+    const base = i - delay;
+    for (let k=0;k<numTaps;k++){
+      const idx = base + k;
+      if (idx>=0 && idx<outLen) acc += taps[k]*stuffed[idx];
+    }
+    out[i] = acc*factor; // restore amplitude after zero-stuffing energy loss
+  }
+  return out;
+}
+
+function truePeakDbtp(channelsX){
+  let maxAbs = 0;
+  for (const ch of channelsX){
+    const up = upsampleChannel(ch, TP_OVERSAMPLE);
+    for (let i=0;i<up.length;i++){ const a=Math.abs(up[i]); if (a>maxAbs) maxAbs=a; }
+  }
+  return 20*Math.log10(maxAbs + 1e-30);
+}
+
+function samplePeakDbfs(channelsX){
+  let maxAbs = 0;
+  for (const ch of channelsX) for (let i=0;i<ch.length;i++){ const a=Math.abs(ch[i]); if (a>maxAbs) maxAbs=a; }
+  return 20*Math.log10(maxAbs + 1e-30);
+}
+
+function isFiniteAll(channelsX){
+  for (const ch of channelsX) for (let i=0;i<ch.length;i++) if (!isFinite(ch[i])) return false;
+  return true;
+}
+
+function analyze(channelsX, sr){
+  const st = shortTermLkfs(channelsX, sr);
+  const mo = momentaryLkfs(channelsX, sr);
+  return {
+    integrated_lufs: integratedLkfs(channelsX, sr),
+    lra_lu: loudnessRange(channelsX, sr),
+    momentary_max_lufs: mo.length ? Math.max(...mo) : -Infinity,
+    short_term_max_lufs: st.length ? Math.max(...st) : -Infinity,
+    sample_peak_dbfs: samplePeakDbfs(channelsX),
+    true_peak_dbtp: truePeakDbtp(channelsX),
+  };
+}
+
+function normalizeToLufs(channelsX, current, target){
+  if (!isFinite(current)) throw new Error("cannot normalize a signal with undefined integrated loudness");
+  const gain = target - current;
+  const g = Math.pow(10, gain/20);
+  const out = channelsX.map(ch => { const o = new Float64Array(ch.length); for (let i=0;i<ch.length;i++) o[i]=ch[i]*g; return o; });
+  return [out, gain];
+}
+
+function trimTruePeak(channelsX, ceiling){
+  const tp = truePeakDbtp(channelsX);
+  if (tp <= ceiling) return [channelsX, 0.0];
+  const trim = ceiling - tp;
+  const g = Math.pow(10, trim/20);
+  const out = channelsX.map(ch => { const o = new Float64Array(ch.length); for (let i=0;i<ch.length;i++) o[i]=ch[i]*g; return o; });
+  return [out, trim];
+}
+
+function safePcm(channelsX){
+  let p = 0;
+  for (const ch of channelsX) for (let i=0;i<ch.length;i++){ const a=Math.abs(ch[i]); if (a>p) p=a; }
+  if (p<=1.0) return [channelsX, false];
+  const out = channelsX.map(ch => { const o = new Float64Array(ch.length); for (let i=0;i<ch.length;i++) o[i]=ch[i]/p; return o; });
+  return [out, true];
+}
+
+/* ---------------- WAV read / write ---------------- */
+function readWav(buf){
+  const dv = new DataView(buf);
+  if (dv.getUint32(0,false)!==0x52494646 /*RIFF*/ || dv.getUint32(8,false)!==0x57415645 /*WAVE*/){
+    return null; // not a WAV, caller should fall back to decodeAudioData
+  }
+  let pos = 12;
+  let fmt = null, dataOffset=-1, dataLen=0;
+  while (pos + 8 <= dv.byteLength){
+    const id = dv.getUint32(pos,false);
+    const size = dv.getUint32(pos+4,true);
+    const body = pos+8;
+    if (id===0x666d7420 /*'fmt '*/){
+      fmt = {
+        audioFormat: dv.getUint16(body,true),
+        numChannels: dv.getUint16(body+2,true),
+        sampleRate: dv.getUint32(body+4,true),
+        bitsPerSample: dv.getUint16(body+14,true),
+      };
+      if (fmt.audioFormat===0xFFFE && size>=40){
+        fmt.audioFormat = dv.getUint16(body+24,true); // sub-format
+      }
+    } else if (id===0x64617461 /*'data'*/){
+      dataOffset = body; dataLen = size;
+    }
+    pos = body + size + (size % 2);
+  }
+  if (!fmt || dataOffset<0) return null;
+  const { numChannels, sampleRate, bitsPerSample, audioFormat } = fmt;
+  const bytesPerSample = bitsPerSample/8;
+  const frameCount = Math.floor(dataLen/(bytesPerSample*numChannels));
+  const channels = [];
+  for (let c=0;c<numChannels;c++) channels.push(new Float64Array(frameCount));
+
+  if (audioFormat===3 && bitsPerSample===32){
+    for (let i=0;i<frameCount;i++){
+      const base = dataOffset + i*bytesPerSample*numChannels;
+      for (let c=0;c<numChannels;c++) channels[c][i] = dv.getFloat32(base + c*4, true);
+    }
+  } else if (audioFormat===3 && bitsPerSample===64){
+    for (let i=0;i<frameCount;i++){
+      const base = dataOffset + i*bytesPerSample*numChannels;
+      for (let c=0;c<numChannels;c++) channels[c][i] = dv.getFloat64(base + c*8, true);
+    }
+  } else if (audioFormat===1 && bitsPerSample===16){
+    for (let i=0;i<frameCount;i++){
+      const base = dataOffset + i*2*numChannels;
+      for (let c=0;c<numChannels;c++) channels[c][i] = dv.getInt16(base + c*2, true)/32768.0;
+    }
+  } else if (audioFormat===1 && bitsPerSample===24){
+    for (let i=0;i<frameCount;i++){
+      const base = dataOffset + i*3*numChannels;
+      for (let c=0;c<numChannels;c++){
+        const o = base + c*3;
+        let v = dv.getUint8(o) | (dv.getUint8(o+1)<<8) | (dv.getUint8(o+2)<<16);
+        if (v & 0x800000) v -= 0x1000000;
+        channels[c][i] = v/8388608.0;
+      }
+    }
+  } else if (audioFormat===1 && bitsPerSample===32){
+    for (let i=0;i<frameCount;i++){
+      const base = dataOffset + i*4*numChannels;
+      for (let c=0;c<numChannels;c++) channels[c][i] = dv.getInt32(base + c*4, true)/2147483648.0;
+    }
+  } else if (audioFormat===1 && bitsPerSample===8){
+    for (let i=0;i<frameCount;i++){
+      const base = dataOffset + i*numChannels;
+      for (let c=0;c<numChannels;c++) channels[c][i] = (dv.getUint8(base + c) - 128)/128.0;
+    }
+  } else {
+    return null; // unsupported subformat, fall back to decodeAudioData
+  }
+  return { channels, sampleRate, bitsPerSample, frameCount };
+}
+
+async function decodeViaWebAudio(arrayBuffer){
+  const AC = window.AudioContext || window.webkitAudioContext;
+  const ctx = new AC();
+  const audioBuf = await ctx.decodeAudioData(arrayBuffer.slice(0));
+  const channels = [];
+  for (let c=0;c<audioBuf.numberOfChannels;c++) channels.push(new Float64Array(audioBuf.getChannelData(c)));
+  const sampleRate = audioBuf.sampleRate;
+  ctx.close();
+  return { channels, sampleRate, bitsPerSample: null, frameCount: audioBuf.length, resampledByBrowser:true };
+}
+
+function encodeWav(channels, sampleRate, bits){
+  const numChannels = channels.length;
+  const frameCount = channels[0].length;
+  const bytesPerSample = bits/8;
+  const blockAlign = bytesPerSample*numChannels;
+  const dataSize = frameCount*blockAlign;
+  const isFloat = bits===32;
+  const buf = new ArrayBuffer(44 + dataSize);
+  const dv = new DataView(buf);
+  let p=0;
+  function u32(v){ dv.setUint32(p,v,true); p+=4; }
+  function u16(v){ dv.setUint16(p,v,true); p+=2; }
+  function ascii(s){ for (let i=0;i<s.length;i++){ dv.setUint8(p, s.charCodeAt(i)); p++; } }
+  ascii("RIFF"); u32(36+dataSize); ascii("WAVE");
+  ascii("fmt "); u32(16); u16(isFloat?3:1); u16(numChannels); u32(sampleRate);
+  u32(sampleRate*blockAlign); u16(blockAlign); u16(bits);
+  ascii("data"); u32(dataSize);
+  const clamp = (v)=> v<-1?-1:(v>1?1:v);
+  if (bits===16){
+    for (let i=0;i<frameCount;i++) for (let c=0;c<numChannels;c++){
+      dv.setInt16(p, Math.round(clamp(channels[c][i])*32767), true); p+=2;
+    }
+  } else if (bits===24){
+    for (let i=0;i<frameCount;i++) for (let c=0;c<numChannels;c++){
+      let v = Math.round(clamp(channels[c][i])*8388607);
+      dv.setUint8(p, v & 0xFF); dv.setUint8(p+1, (v>>8)&0xFF); dv.setUint8(p+2, (v>>16)&0xFF); p+=3;
+    }
+  } else if (bits===32){
+    for (let i=0;i<frameCount;i++) for (let c=0;c<numChannels;c++){
+      dv.setFloat32(p, channels[c][i], true); p+=4;
+    }
+  }
+  return buf;
+}
+
+/* ---------------- top-level process_one, mirrors littlesqrt.py ---------------- */
+async function processOne(file, opts, onProgress){
+  const t0 = performance.now();
+  const arrayBuffer = await file.arrayBuffer();
+  let decoded = readWav(arrayBuffer);
+  let resampledByBrowser = false;
+  if (!decoded){
+    decoded = await decodeViaWebAudio(arrayBuffer);
+    resampledByBrowser = true;
+  }
+  let { channels, sampleRate } = decoded;
+  const srIn = sampleRate;
+  const framesIn = channels[0].length;
+  const numChannels = channels.length;
+
+  if (!isFiniteAll(channels)) throw new Error("input contains NaN or Inf");
+
+  onProgress && onProgress("filtering");
+  if (opts.hpHz > 0){
+    if (opts.hpHz >= sampleRate*0.5) throw new Error("high-pass cutoff must be below Nyquist");
+    channels = channels.map(ch => highpassChannel(ch, opts.hpHz, sampleRate));
+  }
+
+  onProgress && onProgress("measuring");
+  const before = analyze(channels, sampleRate);
+
+  onProgress && onProgress("normalizing");
+  let requestedGain;
+  [channels, requestedGain] = normalizeToLufs(channels, before.integrated_lufs, opts.target);
+
+  onProgress && onProgress("limiting true peak");
+  let tpTrim;
+  [channels, tpTrim] = trimTruePeak(channels, opts.tpCeiling);
+
+  const render = {
+    target_lufs: opts.target,
+    requested_gain_db: requestedGain,
+    tp_ceiling_dbtp: opts.tpCeiling,
+    tp_trim_db: tpTrim,
+    ceiling_limited: tpTrim < -1e-12,
+    safety_scaled: false,
+  };
+
+  let srOut = sampleRate;
+  if (opts.do8x){
+    onProgress && onProgress("rendering 8x");
+    channels = channels.map(ch => upsampleChannel(ch, OUTPUT_UPSAMPLE));
+    srOut = sampleRate*OUTPUT_UPSAMPLE;
+  }
+
+  let safetyScaled;
+  [channels, safetyScaled] = safePcm(channels);
+  render.safety_scaled = safetyScaled;
+
+  onProgress && onProgress("verifying");
+  const final = analyze(channels, srOut);
+  const verification = {
+    integrated_lufs: final.integrated_lufs,
+    lra_lu: final.lra_lu,
+    sample_peak_dbfs: final.sample_peak_dbfs,
+    true_peak_dbtp: final.true_peak_dbtp,
+    loudness_error_lu: final.integrated_lufs - opts.target,
+    finite: isFiniteAll(channels),
+    clipped: final.true_peak_dbtp > 0.0,
+  };
+
+  const wavBuf = encodeWav(channels, srOut, opts.bits);
+  const outName = file.name.replace(/\.[^.]+$/, "") + `_norm${opts.target}LUFS.wav`;
+
+  return {
+    version: "2.0.1-web",
+    file: file.name,
+    output: outName,
+    sr_in: srIn,
+    sr_out: srOut,
+    channels: numChannels,
+    frames_in: framesIn,
+    frames_out: channels[0].length,
+    output_bits: opts.bits,
+    upsample_factor: opts.do8x ? OUTPUT_UPSAMPLE : 1,
+    resampled_by_browser: resampledByBrowser,
+    measurement: before,
+    render,
+    verification,
+    wall_s: (performance.now()-t0)/1000,
+    blob: new Blob([wavBuf], {type:"audio/wav"}),
+  };
+}
+
+/* =========================================================================
+   UI wiring
+   ========================================================================= */
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const filelistEl = document.getElementById('filelist');
+const runBtn = document.getElementById('runBtn');
+const runStatus = document.getElementById('runStatus');
+const resultsEl = document.getElementById('results');
+const batchActions = document.getElementById('batchActions');
+const downloadAllLink = document.getElementById('downloadAll');
+
+const targetPreset = document.getElementById('targetPreset');
+const customTargetField = document.getElementById('customTargetField');
+const targetCustom = document.getElementById('targetCustom');
+const tpCeilingInput = document.getElementById('tpCeiling');
+const hpHzInput = document.getElementById('hpHz');
+const bitDepthSelect = document.getElementById('bitDepth');
+const upsampleToggle = document.getElementById('upsampleToggle');
+
+let files = [];
+let upsampleOn = true;
+upsampleToggle.classList.add('on');
+
+targetPreset.addEventListener('change', () => {
+  customTargetField.style.display = targetPreset.value==='custom' ? '' : 'none';
+});
+upsampleToggle.addEventListener('click', () => {
+  upsampleOn = !upsampleOn;
+  upsampleToggle.classList.toggle('on', upsampleOn);
+});
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e)=>{ e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', ()=> dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', (e)=>{
+  e.preventDefault(); dropzone.classList.remove('drag');
+  addFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', (e)=> addFiles(e.target.files));
+
+function addFiles(fileListLike){
+  for (const f of fileListLike) files.push(f);
+  renderFileList();
+}
+function removeFile(idx){ files.splice(idx,1); renderFileList(); }
+
+function fmtBytes(n){
+  if (n<1024) return n+" B";
+  if (n<1024*1024) return (n/1024).toFixed(1)+" KB";
+  return (n/1024/1024).toFixed(1)+" MB";
+}
+
+function renderFileList(){
+  if (files.length===0){ filelistEl.style.display='none'; filelistEl.innerHTML=''; runBtn.disabled=true; return; }
+  filelistEl.style.display='';
+  filelistEl.innerHTML = files.map((f,i)=>`
+    <div class="row">
+      <span class="name">${f.name}</span>
+      <span style="display:flex; align-items:center; gap:12px;">
+        <span class="size">${fmtBytes(f.size)}</span>
+        <button class="rm" data-idx="${i}">×</button>
+      </span>
+    </div>`).join('');
+  filelistEl.querySelectorAll('.rm').forEach(btn=>{
+    btn.addEventListener('click', ()=> removeFile(parseInt(btn.dataset.idx,10)));
+  });
+  runBtn.disabled = false;
+}
+
+function currentTarget(){
+  return targetPreset.value==='custom' ? parseFloat(targetCustom.value) : parseFloat(targetPreset.value);
+}
+
+function lufsToPct(l){
+  // display scale: -40 LUFS .. 0 LUFS
+  const clamped = Math.max(-40, Math.min(0, l));
+  return ((clamped+40)/40)*100;
+}
+
+function meterRow(label, value, unit, markPct){
+  const pct = isFinite(value) ? lufsToPct(value) : 0;
+  const markStyle = (markPct!=null) ? `<div class="meter-mark" style="left:${markPct}%;"></div>` : '';
+  return `<div class="meter-row">
+    <span class="mlabel">${label}</span>
+    <div class="meter-track"><div class="meter-fill" style="width:${pct}%;"></div>${markStyle}</div>
+    <span class="meter-val">${isFinite(value)?value.toFixed(1):'-∞'} ${unit}</span>
+  </div>`;
+}
+
+function kv(k,v,cls){ return `<div class="kv"><span class="k">${k}</span><span class="v ${cls||''}">${v}</span></div>`; }
+function fnum(v,d=2){ return isFinite(v) ? v.toFixed(d) : (v===-Infinity?'-∞':'—'); }
+
+function renderReport(r, targetVal){
+  if (r.error){
+    return `<div class="report-card"><div class="head">
+      <span class="fname">${r.file}</span>
+      <span class="err">ERROR — ${r.error}</span>
+    </div></div>`;
+  }
+  const m = r.measurement, v = r.verification, rn = r.render;
+  const targetPct = lufsToPct(targetVal);
+  const url = URL.createObjectURL(r.blob);
+  const clipCls = v.clipped ? 'bad' : '';
+  const ceilCls = rn.ceiling_limited ? 'warn' : '';
+  const errCls = Math.abs(v.loudness_error_lu) > 0.3 ? 'warn' : '';
+  return `<div class="report-card">
+    <div class="head">
+      <span class="fname">${r.file} → ${r.output}</span>
+      <a class="dl" href="${url}" download="${r.output}">download .wav</a>
+    </div>
+    <div class="meter">
+      ${meterRow('before', m.integrated_lufs, 'LUFS', targetPct)}
+      ${meterRow('after', v.integrated_lufs, 'LUFS', targetPct)}
+    </div>
+    <div class="numbers">
+      <div class="numcol">
+        <h4>measurement (input)</h4>
+        ${kv('integrated', fnum(m.integrated_lufs)+' LUFS')}
+        ${kv('LRA', fnum(m.lra_lu,1)+' LU')}
+        ${kv('true peak', fnum(m.true_peak_dbtp,2)+' dBTP')}
+        ${kv('sample peak', fnum(m.sample_peak_dbfs,2)+' dBFS')}
+      </div>
+      <div class="numcol">
+        <h4>render</h4>
+        ${kv('target', fnum(rn.target_lufs,1)+' LUFS')}
+        ${kv('gain applied', (rn.requested_gain_db>=0?'+':'')+fnum(rn.requested_gain_db,2)+' dB')}
+        ${kv('tp ceiling', fnum(rn.tp_ceiling_dbtp,1)+' dBTP')}
+        ${kv('ceiling limited', rn.ceiling_limited ? 'yes ('+fnum(rn.tp_trim_db,2)+' dB)' : 'no', ceilCls)}
+        ${kv('safety scaled', rn.safety_scaled ? 'yes' : 'no', rn.safety_scaled?'warn':'')}
+      </div>
+      <div class="numcol">
+        <h4>verification (output)</h4>
+        ${kv('integrated', fnum(v.integrated_lufs)+' LUFS')}
+        ${kv('loudness error', (v.loudness_error_lu>=0?'+':'')+fnum(v.loudness_error_lu,2)+' LU', errCls)}
+        ${kv('true peak', fnum(v.true_peak_dbtp,2)+' dBTP', clipCls)}
+        ${kv('sr', r.sr_in+' → '+r.sr_out+' Hz')}
+        ${kv('wall time', fnum(r.wall_s,2)+' s')}
+      </div>
+    </div>
+  </div>`;
+}
+
+runBtn.addEventListener('click', async () => {
+  if (files.length===0) return;
+  runBtn.disabled = true;
+  const target = currentTarget();
+  const opts = {
+    target,
+    tpCeiling: parseFloat(tpCeilingInput.value),
+    hpHz: parseFloat(hpHzInput.value),
+    bits: parseInt(bitDepthSelect.value,10),
+    do8x: upsampleOn,
+  };
+  const reports = [];
+  resultsEl.innerHTML = '';
+  batchActions.style.display = 'none';
+
+  for (let i=0;i<files.length;i++){
+    const f = files[i];
+    runStatus.textContent = `[${i+1}/${files.length}] ${f.name} — starting…`;
+    await new Promise(r=>setTimeout(r,0)); // yield so status paints
+    try {
+      const r = await processOne(f, opts, (stage)=>{
+        runStatus.textContent = `[${i+1}/${files.length}] ${f.name} — ${stage}…`;
+      });
+      reports.push(r);
+    } catch (e){
+      reports.push({ file: f.name, error: e.message || String(e) });
+    }
+    resultsEl.innerHTML = reports.map(r=>renderReport(r, target)).join('');
+  }
+
+  runStatus.textContent = `done — ${reports.filter(r=>!r.error).length}/${files.length} processed`;
+  runBtn.disabled = false;
+
+  const ok = reports.filter(r=>!r.error);
+  if (ok.length > 1 && window.JSZip){
+    batchActions.style.display = '';
+    downloadAllLink.onclick = async (e) => {
+      e.preventDefault();
+      downloadAllLink.textContent = 'zipping…';
+      const zip = new JSZip();
+      for (const r of ok) zip.file(r.output, r.blob);
+      const content = await zip.generateAsync({type:'blob'});
+      const url = URL.createObjectURL(content);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'littlesqrt-output.zip'; a.click();
+      downloadAllLink.textContent = 'download all as .zip';
+    };
+  }
+});
+</script>
+</body>
+</html>
