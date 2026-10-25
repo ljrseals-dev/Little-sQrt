@@ -1,4 +1,8 @@
-# Little sQrt v2.0.1
+Copyright © 2026 Lewis James Seals Jr. All rights reserved.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT.# Little sQrt v2.0.1
 
 <p align="center">
   <img src="images/DSC_7512.CR2.jpg" alt="Crystal-ASIO-Codec Banner" width="100%">
